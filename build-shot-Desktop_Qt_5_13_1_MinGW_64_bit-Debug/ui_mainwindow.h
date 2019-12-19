@@ -37,8 +37,10 @@ public:
     QLineEdit *outputLineEdit;
     QPushButton *outputPushButton;
     QCheckBox *showButton;
+    QVBoxLayout *verticalLayout_4;
+    QPushButton *pushButton;
     QVBoxLayout *verticalLayout_2;
-    QPushButton *processButton;
+    QPushButton *histbutton;
     QVBoxLayout *verticalLayout_3;
     QProgressBar *progressBar;
 
@@ -46,7 +48,7 @@ public:
     {
         if (MainWindow->objectName().isEmpty())
             MainWindow->setObjectName(QString::fromUtf8("MainWindow"));
-        MainWindow->resize(446, 248);
+        MainWindow->resize(446, 331);
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
         verticalLayout = new QVBoxLayout(centralWidget);
@@ -100,13 +102,24 @@ public:
 
         verticalLayout->addWidget(showButton);
 
+        verticalLayout_4 = new QVBoxLayout();
+        verticalLayout_4->setSpacing(6);
+        verticalLayout_4->setObjectName(QString::fromUtf8("verticalLayout_4"));
+        pushButton = new QPushButton(centralWidget);
+        pushButton->setObjectName(QString::fromUtf8("pushButton"));
+
+        verticalLayout_4->addWidget(pushButton);
+
+
+        verticalLayout->addLayout(verticalLayout_4);
+
         verticalLayout_2 = new QVBoxLayout();
         verticalLayout_2->setSpacing(6);
         verticalLayout_2->setObjectName(QString::fromUtf8("verticalLayout_2"));
-        processButton = new QPushButton(centralWidget);
-        processButton->setObjectName(QString::fromUtf8("processButton"));
+        histbutton = new QPushButton(centralWidget);
+        histbutton->setObjectName(QString::fromUtf8("histbutton"));
 
-        verticalLayout_2->addWidget(processButton);
+        verticalLayout_2->addWidget(histbutton);
 
 
         verticalLayout->addLayout(verticalLayout_2);
@@ -126,6 +139,8 @@ public:
         MainWindow->setCentralWidget(centralWidget);
 
         retranslateUi(MainWindow);
+        QObject::connect(histbutton, SIGNAL(clicked()), MainWindow, SLOT(on_histButton_pressed()));
+        QObject::connect(pushButton, SIGNAL(clicked()), MainWindow, SLOT(on_secondButton_pressed()));
 
         QMetaObject::connectSlotsByName(MainWindow);
     } // setupUi
@@ -138,7 +153,8 @@ public:
         outputLabel->setText(QCoreApplication::translate("MainWindow", "Output path:", nullptr));
         outputPushButton->setText(QCoreApplication::translate("MainWindow", "Browse", nullptr));
         showButton->setText(QCoreApplication::translate("MainWindow", "Show video processing", nullptr));
-        processButton->setText(QCoreApplication::translate("MainWindow", "Start process", nullptr));
+        pushButton->setText(QCoreApplication::translate("MainWindow", "detect by optical flow", nullptr));
+        histbutton->setText(QCoreApplication::translate("MainWindow", "detect by hist", nullptr));
     } // retranslateUi
 
 };

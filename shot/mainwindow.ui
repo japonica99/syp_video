@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>446</width>
-    <height>248</height>
+    <height>331</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -65,11 +65,22 @@
      </widget>
     </item>
     <item>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
+       <widget class="QPushButton" name="pushButton">
+        <property name="text">
+         <string>detect by optical flow</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QPushButton" name="processButton">
+       <widget class="QPushButton" name="histbutton">
         <property name="text">
-         <string>Start process</string>
+         <string>detect by hist</string>
         </property>
        </widget>
       </item>
@@ -91,5 +102,42 @@
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>histbutton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_histButton_pressed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>134</x>
+     <y>231</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>723</x>
+     <y>256</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_secondButton_pressed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>264</x>
+     <y>172</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>709</x>
+     <y>179</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>on_histButton_pressed()</slot>
+  <slot>on_secondButton_pressed()</slot>
+ </slots>
 </ui>

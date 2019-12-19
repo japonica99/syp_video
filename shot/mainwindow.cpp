@@ -52,25 +52,16 @@ void MainWindow::on_outputPushButton_pressed()
  * Open the input video, get each frame and put into it the number frame and the date of the processing.
  * At last, each frame is written in a new video file
 */
-void MainWindow::on_processButton_pressed()
+void MainWindow::on_histButton_pressed()
 {
-    using namespace cv;
     ui->progressBar->setValue(0);
 
     QString video_name = ui->inputLineEdit->text();
     QString out_path = ui->outputLineEdit->text();
-    //QString file_name = ui->nameInLabel->text();
     QString date = QDate::currentDate().toString("d.M.yyyy");
     MainWindow::checkArg(video_name);
-    //MainWindow::checkArg(out_path);
-
-//    if(file_name.isEmpty())
-//    {
-//        file_name = QFileInfo(video_name).fileName();
-//        file_name = file_name.split('.', QString::SkipEmptyParts).at(0) + "_processed";
-//    }
+    MainWindow::checkArg(out_path);
     QString ext = video_name.split('.', QString::SkipEmptyParts).at(1);
-    //QString full_name = out_path + "/" + file_name + "." + ext;
 
     VideoCapture video;
     video.open(video_name.toStdString());
@@ -85,8 +76,6 @@ void MainWindow::on_processButton_pressed()
         int frame_width = video.get(CV_CAP_PROP_FRAME_WIDTH);
         int frame_height = video.get(CV_CAP_PROP_FRAME_HEIGHT);
 
-        //VideoWriter video_out(full_name.toStdString(), fourcc, fps, Size(frame_width,frame_height));
-
         Mat pre;
         int index = 0;
         while(true)
@@ -99,13 +88,7 @@ void MainWindow::on_processButton_pressed()
                     index++;
                     continue;
                 }
-//                QString text1 = "Frame: " + QString::number(n_frame);
-//                QString text2 = "Date: " + date;
-//                putText(frame, text1.toStdString(), cvPoint(15, 15), FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0,255,0), 1);
-//                putText(frame, text2.toStdString(), cvPoint(15, 35), FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0,255,0), 1);
-//                video_out.write(frame);
                 float intersect = detectBondarybyHist(pre,frame);
-                //cout << intersect;
                 diff.push_back(intersect);//第一个结果是第二帧
                 if(ui->showButton->isChecked())
                 {
@@ -147,46 +130,174 @@ void MainWindow::on_processButton_pressed()
                 video.set(CV_CAP_PROP_POS_FRAMES,0);
                 video.read(frame);
                 imwrite(full_name.toStdString(),frame);
-//                for(int j = 0; j < border[i];j ++){
-//                    video.set(CV_CAP_PROP_POS_FRAMES,j);
-//                    video.read(frame);
-//                    video_out.write(frame);
-//                }
-
             }
             else{
                 video.set(CV_CAP_PROP_POS_FRAMES,border[i]);
                 video.read(frame);
                 imwrite(full_name.toStdString(),frame);
-//                for(int j = border[i - 1]; j < border[i];j ++){
-//                    video.set(CV_CAP_PROP_POS_FRAMES,j);
-//                    video.read(frame);
-//                    video_out.write(frame);
-//                }
             }
             num++;
-            //video_out.release();
         }
-//        if(border[border.size() - 1] != diff.size()){
-//            QString full_name = out_path + "/" + QString::number(num) + "." + ext;
-//            VideoWriter video_out(full_name.toStdString(), CV_FOURCC('D', 'I', 'V', 'X') , fps, Size(frame_width,frame_height));
-//            for(int j = border[border.size() - 1]; j < diff.size();j ++){
-//                video.set(CV_CAP_PROP_POS_FRAMES,j);
-//                video.read(frame);
-//                video_out.write(frame);
-//            }
-//            video_out.release();
-//        }
-        //video_out.release();
     }
     else{
         cout << "can't open file" << endl;
     }
     video.release();
-//    cout << diff.size();
-//    for(int i = 0;i < diff.size();i++)
-//        cout << diff[i] <<endl;
-    //zi shi ying
+    destroyAllWindows();
+    MainWindow::finishEvent();
+}
+
+void MainWindow::on_secondButton_pressed(){
+    ui->progressBar->setValue(0);
+
+    QString video_name = ui->inputLineEdit->text();
+    QString out_path = ui->outputLineEdit->text();
+
+    QString date = QDate::currentDate().toString("d.M.yyyy");
+    MainWindow::checkArg(video_name);
+    MainWindow::checkArg(out_path);
+    QString ext = video_name.split('.', QString::SkipEmptyParts).at(1);
+
+    VideoCapture video;
+    video.open(video_name.toStdString());
+    vector<double> diff;
+
+    TermCriteria termcrit(TermCriteria::COUNT|TermCriteria::EPS,20,0.03);
+    Size subPixWinSize(10,10), winSize(31,31);
+    const int MAX_COUNT = 500;
+    Mat current_frame_gray,key_frame,key_frame_gray;
+    vector<Point2f> key_frame_points,current_frame_points;
+    vector<Point2f> cornor_points;
+
+    if(video.isOpened())
+    {
+        Mat frame;
+        int n_frame = 0;
+        int total_frames = video.get(CV_CAP_PROP_FRAME_COUNT);
+        int fourcc = video.get(CV_CAP_PROP_FOURCC);
+        double fps = video.get(CV_CAP_PROP_FPS);
+        int frame_width = video.get(CV_CAP_PROP_FRAME_WIDTH);
+        int frame_height = video.get(CV_CAP_PROP_FRAME_HEIGHT);
+
+        Mat lastkey;
+        vector<int> keyframe;
+        int index = 0;
+        while(true)
+        {
+            if(video.read(frame))
+            {
+                n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
+                ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
+                //if(detectKeyframebyOptical(frame,keyframe,lastkey)) keyframe.push_back(index);
+
+                if(index == 0)
+                {
+                    key_frame = frame.clone();
+                    cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
+
+                    cornor_points.clear();
+                    goodFeaturesToTrack(key_frame_gray, cornor_points,MAX_COUNT, 0.01, 10);
+                    cornerSubPix(key_frame_gray, cornor_points, subPixWinSize, Size(-1,-1), termcrit);
+
+                    key_frame_points.clear();
+                    key_frame_points.assign(cornor_points.begin(),cornor_points.end());
+                }
+                else
+                {
+                    cvtColor(frame, current_frame_gray, COLOR_BGR2GRAY);
+
+                    cornor_points.clear();
+                    goodFeaturesToTrack(current_frame_gray, cornor_points, MAX_COUNT, 0.01, 10);
+                    cornerSubPix(current_frame_gray, cornor_points, subPixWinSize, Size(-1,-1), termcrit);
+
+                    current_frame_points.clear();
+                    current_frame_points.assign(cornor_points.begin(),cornor_points.end());
+
+                    vector<uchar> status;
+                    vector<float> err;
+                    calcOpticalFlowPyrLK(current_frame_gray, key_frame_gray,current_frame_points, key_frame_points, status, err, winSize,3, termcrit, 0, 0.001);
+                    //calc the distance
+                    std::vector<double> moving_distance;
+                    for(int i = 0; i < key_frame_points.size(); i++ )
+                    {
+                        if( status[i] )
+                        {
+                            moving_distance.push_back(sqrt( pow(key_frame_points[i].x-current_frame_points[i].x,2)+pow(key_frame_points[i].y-current_frame_points[i].y,2) ));
+                        }
+                    }
+                    if(moving_distance.empty()) cout<<index<<" "<<"0";
+                    else cout<<" "<<"1";
+
+
+                    double mean_all=0,stdenv_all=0;
+                        getMeanandStd(moving_distance,mean_all,stdenv_all);
+                        cout<<"\t" << mean_all;
+
+                        //only keep the point in 2&stdenv
+                        std::vector<double> moving_distance_filter;
+                        for(int i=0;i<moving_distance.size();i++)
+                        {
+                            if( abs(moving_distance[i]-mean_all)<2*stdenv_all )
+                            {
+                                moving_distance_filter.push_back(moving_distance[i]);
+                            }
+                        }
+
+                        //recompute the mean and std
+                        double mean_filter=0,stdenv_filter=0;
+                        getMeanandStd(moving_distance_filter,mean_filter,stdenv_filter);
+
+                        cout<<"\t"<<mean_filter<<std::endl;
+                        //dealing
+                        if(mean_filter>=140)
+                        {
+                            //cv::swap(key_frame, frame);
+                            key_frame = frame.clone();
+                            cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
+
+                            cornor_points.clear();
+                            goodFeaturesToTrack(key_frame_gray, cornor_points, MAX_COUNT, 0.01, 10);
+                            cornerSubPix(key_frame_gray, cornor_points, subPixWinSize, Size(-1,-1), termcrit);
+
+                            key_frame_points.clear();
+                            key_frame_points.assign(cornor_points.begin(),cornor_points.end());
+                            keyframe.push_back(index);
+                        }
+                }
+
+
+                if(ui->showButton->isChecked())
+                {
+                    imshow("Processing", frame);
+                    waitKey(20);
+                    char c = (char)waitKey(33);
+                    if( c == 27 ) break;
+                }
+
+                index++;
+                //ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
+            }
+            else
+            {
+                break;
+            }
+        }
+        int num = 0;
+        for(int i = 0;i < keyframe.size();i++){
+//            QString full_name = out_path + "/" + QString::number(num) + "." + ext;
+//            VideoWriter video_out(full_name.toStdString(), CV_FOURCC('D', 'I', 'V', 'X') , fps, Size(frame_width,frame_height));
+            //cant write h264
+            QString full_name = out_path + "/comparedbyoptical-" + QString::number(num) + ".jpg";
+            video.set(CV_CAP_PROP_POS_FRAMES,keyframe[i]);
+            video.read(frame);
+            imwrite(full_name.toStdString(),frame);
+            num++;
+        }
+    }
+    else{
+        cout << "can't open file" << endl;
+    }
+    video.release();
 
     destroyAllWindows();
     MainWindow::finishEvent();
@@ -205,10 +316,10 @@ void MainWindow::finishEvent()
 */
 void MainWindow::checkArg(QString arg)
 {
-//    if(arg.isEmpty())
-//    {
-//        QMessageBox::warning(this, "ERROR", "Please, check the INPUT FILE or OUTPUT PATH is empty.", QMessageBox::Ok);
-//    }
+    if(arg.isEmpty())
+    {
+        QMessageBox::warning(this, "ERROR", "Please, check the INPUT FILE or OUTPUT PATH is empty.", QMessageBox::Ok);
+    }
 
 }
 
@@ -267,6 +378,20 @@ float MainWindow::detectBondarybyHist(cv::Mat &pre, cv::Mat& frame){
         s += prevHist.at<float>(i);
     }
     result += s1/(3*s);
-    //cout << result << endl;
     return result;
+}
+
+void MainWindow::getMeanandStd(const vector<double> &num,double &mean,double &stdenv)
+{
+    mean = 0;
+    stdenv = 0;
+    //mean and std
+    double sum = std::accumulate(std::begin(num),std::end(num),0.0);
+    mean = sum/num.size();
+    double accum = 0.0;
+    std::for_each (std::begin(num),std::end(num),[&](const double d)
+    {
+        accum += (d-mean)*(d-mean);
+    });
+    stdenv = sqrt(accum/(num.size()-1));
 }
