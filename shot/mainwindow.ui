@@ -76,6 +76,17 @@
      </layout>
     </item>
     <item>
+     <layout class="QVBoxLayout" name="verticalLayout_5">
+      <item>
+       <widget class="QPushButton" name="pushButton_2">
+        <property name="text">
+         <string>detect by Kmean</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
        <widget class="QPushButton" name="histbutton">
@@ -110,8 +121,8 @@
    <slot>on_histButton_pressed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>134</x>
-     <y>231</y>
+     <x>146</x>
+     <y>264</y>
     </hint>
     <hint type="destinationlabel">
      <x>723</x>
@@ -126,8 +137,8 @@
    <slot>on_secondButton_pressed()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>264</x>
-     <y>172</y>
+     <x>276</x>
+     <y>167</y>
     </hint>
     <hint type="destinationlabel">
      <x>709</x>
@@ -135,9 +146,26 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>pushButton_2</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_KmeanButton_pressed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>223</x>
+     <y>204</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>758</x>
+     <y>188</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>on_histButton_pressed()</slot>
   <slot>on_secondButton_pressed()</slot>
+  <slot>on_KmeanButton_pressed()</slot>
  </slots>
 </ui>

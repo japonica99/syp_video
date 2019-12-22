@@ -47,11 +47,6 @@ void MainWindow::on_outputPushButton_pressed()
     }
 }
 
-/*
- * When process button is pressed initialize the value of progressBar and get the content of each lineEdit.
- * Open the input video, get each frame and put into it the number frame and the date of the processing.
- * At last, each frame is written in a new video file
-*/
 void MainWindow::on_histButton_pressed()
 {
     ui->progressBar->setValue(0);
@@ -71,10 +66,6 @@ void MainWindow::on_histButton_pressed()
         Mat frame;
         int n_frame = 0;
         int total_frames = video.get(CV_CAP_PROP_FRAME_COUNT);
-        int fourcc = video.get(CV_CAP_PROP_FOURCC);
-        double fps = video.get(CV_CAP_PROP_FPS);
-        int frame_width = video.get(CV_CAP_PROP_FRAME_WIDTH);
-        int frame_height = video.get(CV_CAP_PROP_FRAME_HEIGHT);
 
         Mat pre;
         int index = 0;
@@ -122,22 +113,26 @@ void MainWindow::on_histButton_pressed()
         }
         int num = 0;
         for(int i = 0;i < border.size();i++){
-//            QString full_name = out_path + "/" + QString::number(num) + "." + ext;
-//            VideoWriter video_out(full_name.toStdString(), CV_FOURCC('D', 'I', 'V', 'X') , fps, Size(frame_width,frame_height));
-            //cant write h264
             QString full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
-            if(i == 0 && border[i] != 0){
+            if(i == 0 && border[i] != 1){
                 video.set(CV_CAP_PROP_POS_FRAMES,0);
                 video.read(frame);
                 imwrite(full_name.toStdString(),frame);
+                num++;
             }
             else{
-                video.set(CV_CAP_PROP_POS_FRAMES,border[i]);
-                video.read(frame);
-                imwrite(full_name.toStdString(),frame);
+                if(border[i] - 1 > 0 && border[i] + 1 <= index){
+                    video.set(CV_CAP_PROP_POS_FRAMES,border[i] -1);
+                    video.read(frame);
+                    imwrite(full_name.toStdString(),frame);
+                    video.set(CV_CAP_PROP_POS_FRAMES,border[i] +1);
+                    video.read(frame);
+                    imwrite(full_name.toStdString(),frame);
+                    num+=2;
+                }
             }
-            num++;
         }
+        //本来应该把最后一帧也放进来，但是由于最后一帧通常是全黑的没有意义
     }
     else{
         cout << "can't open file" << endl;
@@ -174,10 +169,6 @@ void MainWindow::on_secondButton_pressed(){
         Mat frame;
         int n_frame = 0;
         int total_frames = video.get(CV_CAP_PROP_FRAME_COUNT);
-        int fourcc = video.get(CV_CAP_PROP_FOURCC);
-        double fps = video.get(CV_CAP_PROP_FPS);
-        int frame_width = video.get(CV_CAP_PROP_FRAME_WIDTH);
-        int frame_height = video.get(CV_CAP_PROP_FRAME_HEIGHT);
 
         Mat lastkey;
         vector<int> keyframe;
@@ -188,8 +179,6 @@ void MainWindow::on_secondButton_pressed(){
             {
                 n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
                 ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
-                //if(detectKeyframebyOptical(frame,keyframe,lastkey)) keyframe.push_back(index);
-
                 if(index == 0)
                 {
                     key_frame = frame.clone();
@@ -275,7 +264,6 @@ void MainWindow::on_secondButton_pressed(){
                 }
 
                 index++;
-                //ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
             }
             else
             {
@@ -284,9 +272,6 @@ void MainWindow::on_secondButton_pressed(){
         }
         int num = 0;
         for(int i = 0;i < keyframe.size();i++){
-//            QString full_name = out_path + "/" + QString::number(num) + "." + ext;
-//            VideoWriter video_out(full_name.toStdString(), CV_FOURCC('D', 'I', 'V', 'X') , fps, Size(frame_width,frame_height));
-            //cant write h264
             QString full_name = out_path + "/comparedbyoptical-" + QString::number(num) + ".jpg";
             video.set(CV_CAP_PROP_POS_FRAMES,keyframe[i]);
             video.read(frame);
@@ -303,17 +288,91 @@ void MainWindow::on_secondButton_pressed(){
     MainWindow::finishEvent();
 }
 
-/*
- * When the process is finished launch an information message
-*/
+void MainWindow::on_KmeanButton_pressed(){
+    ui->progressBar->setValue(0);
+
+    QString video_name = ui->inputLineEdit->text();
+    QString out_path = ui->outputLineEdit->text();
+    MainWindow::checkArg(video_name);
+    MainWindow::checkArg(out_path);
+
+    VideoCapture video;
+    video.open(video_name.toStdString());
+    vector<double> diff;
+    if(video.isOpened())
+    {
+        Mat frame;
+        int n_frame = 0;
+        int total_frames = video.get(CV_CAP_PROP_FRAME_COUNT);
+
+        Mat pre;
+        vector<cluster> clusters;
+        int index = 0;
+        while(true)
+        {
+            if(video.read(frame))
+            {
+                n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
+                //cvtColor(frame, frame, CV_BGR2HSV);
+                detectKeyframebyKmeans(clusters,frame,index);
+                if(ui->showButton->isChecked())
+                {
+                    imshow("Processing", frame);
+                    waitKey(20);
+                    char c = (char)waitKey(33);
+                    if( c == 27 ) break;
+                }
+                index++;
+                ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        vector<int> keyframes;
+        for(int i = 0;i < clusters.size();i++){
+            float max = 0.0f;
+            int ind;
+            cout << "cluster num " << clusters[i].members.size();
+            if(clusters[i].members.size() < 5) continue;
+            for(int j = 0;j < clusters[i].members.size();j++){
+                video.set(CV_CAP_PROP_POS_FRAMES,clusters[i].members[j]);
+                video.read(frame);
+                float diff = detectBondarybyHist(clusters[i].mat,frame);
+                if(diff > max){
+                    max = diff;
+                    ind = clusters[i].members[j];
+                }
+            }
+            keyframes.push_back(ind);
+        }
+        sort(keyframes.begin(),keyframes.end());
+        int num = 0;
+        for(int i = 0;i < keyframes.size();i ++){
+            QString full_name = out_path + "/comparedbyKmeans-" + QString::number(num) + ".jpg";
+            video.set(CV_CAP_PROP_POS_FRAMES,keyframes[i]);
+            video.read(frame);
+            imwrite(full_name.toStdString(),frame);
+            num++;
+        }
+
+    }
+    else{
+        cout << "can't open file" << endl;
+    }
+    video.release();
+    destroyAllWindows();
+    MainWindow::finishEvent();
+}
+
+
 void MainWindow::finishEvent()
 {
     QMessageBox::warning(this, "Process finished", "The process has finished", QMessageBox::Ok);
 }
 
-/*
- * Check if the argument is empty (paths). If it is launch an information message
-*/
 void MainWindow::checkArg(QString arg)
 {
     if(arg.isEmpty())
@@ -323,9 +382,6 @@ void MainWindow::checkArg(QString arg)
 
 }
 
-/*
- * When user close the application launch an information message
-*/
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     int result = QMessageBox::warning(this, "Exit", "Confirm exit?", QMessageBox::Yes, QMessageBox::No);
@@ -337,6 +393,39 @@ void MainWindow::closeEvent(QCloseEvent *event)
     {
         event->ignore();
     }
+}
+
+void MainWindow::detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame,int index){
+    if(clusters.size() == 0){
+        cluster c;
+        c.center = index;
+        c.mat = frame.clone();
+        clusters.push_back(c);
+        return;
+    }
+    float max = 0.0f;
+    float threshold = 0.7f;
+    int threshold2 = 200;
+    int ind = 0;
+    for(int i = 0;i < clusters.size();i ++){
+        float diff = detectBondarybyHist(clusters[i].mat,frame);
+        if(diff > max && index - clusters[i].center < threshold2){
+            ind = i;
+            max = diff;
+        }
+    }
+    cout << "max " << max << endl;
+    if(max < threshold){
+        cluster c;
+        c.center = index;
+        c.mat = frame.clone();
+        clusters.push_back(c);
+        return;
+    }
+    clusters[ind].members.push_back(index);
+    float p =  1 / (clusters[ind].members.size());
+    addWeighted(clusters[ind].mat,1 - p,frame,p,0.0,clusters[ind].mat);
+    return;
 }
 
 float MainWindow::detectBondarybyHist(cv::Mat &pre, cv::Mat& frame){

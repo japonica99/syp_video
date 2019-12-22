@@ -22,6 +22,12 @@
 using namespace std;
 using namespace cv;
 
+typedef struct cluster_d{
+    int center;
+    vector<int> members;
+    cv::Mat mat;
+} cluster;
+
 
 namespace Ui {
 class MainWindow;
@@ -45,6 +51,7 @@ protected:
     float detectBondarybyHist(cv::Mat &prev, cv::Mat& frame);
     bool detectKeyframebyOptical(cv::Mat& frame,vector<int>& keyframe,Mat&key_frame_gray);
     void getMeanandStd(const vector<double> &num,double &mean,double &stdenv);
+    void detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame,int index);
 
 private slots:
     void on_inputPushButton_pressed();
@@ -53,6 +60,10 @@ private slots:
     void on_histButton_pressed();
 
     void on_secondButton_pressed();
+
+    void on_KmeanButton_pressed();
+
+    void on_featureButton_pressed();
 
 private:
     Ui::MainWindow *ui;
