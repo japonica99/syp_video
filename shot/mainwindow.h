@@ -63,8 +63,6 @@ private slots:
 
     void on_KmeanButton_pressed();
 
-    void on_featureButton_pressed();
-
 private:
     Ui::MainWindow *ui;
 };

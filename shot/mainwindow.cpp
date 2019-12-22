@@ -335,8 +335,7 @@ void MainWindow::on_KmeanButton_pressed(){
         for(int i = 0;i < clusters.size();i++){
             float max = 0.0f;
             int ind;
-            cout << "cluster num " << clusters[i].members.size();
-            if(clusters[i].members.size() < 5) continue;
+            if(clusters[i].members.size() <10) continue;
             for(int j = 0;j < clusters[i].members.size();j++){
                 video.set(CV_CAP_PROP_POS_FRAMES,clusters[i].members[j]);
                 video.read(frame);
@@ -400,12 +399,13 @@ void MainWindow::detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame
         cluster c;
         c.center = index;
         c.mat = frame.clone();
+        c.members.push_back(index);
         clusters.push_back(c);
         return;
     }
     float max = 0.0f;
     float threshold = 0.7f;
-    int threshold2 = 200;
+    int threshold2 = 10000000;
     int ind = 0;
     for(int i = 0;i < clusters.size();i ++){
         float diff = detectBondarybyHist(clusters[i].mat,frame);
@@ -419,6 +419,7 @@ void MainWindow::detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame
         cluster c;
         c.center = index;
         c.mat = frame.clone();
+        c.members.push_back(index);
         clusters.push_back(c);
         return;
     }
