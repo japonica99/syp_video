@@ -14,10 +14,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-/*
- * When input button is pressed list the files in file explorer with the selected extension
- * and if the file exists put the full path into lineEdit
-*/
+//获取源视频
 void MainWindow::on_inputPushButton_pressed()
 {
     QString filename = QFileDialog::getOpenFileName(this, "Open input video", QDir::currentPath(),
@@ -31,10 +28,7 @@ void MainWindow::on_inputPushButton_pressed()
     }
 }
 
-/*
- * When output button is pressed open the file explorer for select a folder and if it exists
- * put the full path into lineEdit
-*/
+//获取输出路径
 void MainWindow::on_outputPushButton_pressed()
 {
     QString dir = QFileDialog::getExistingDirectory(this, tr("Open Directory"),
@@ -46,14 +40,16 @@ void MainWindow::on_outputPushButton_pressed()
         ui->outputLineEdit->setText(dir);
     }
 }
-
+//镜头边界法——基于颜色直方图
 void MainWindow::on_histButton_pressed()
 {
+    //为了能让后面的运动分析使用这个结果，把边界帧记录下来
+    border.clear();
     ui->progressBar->setValue(0);
 
+    //获取输入的视频与输出的位置
     QString video_name = ui->inputLineEdit->text();
     QString out_path = ui->outputLineEdit->text();
-    QString date = QDate::currentDate().toString("d.M.yyyy");
     MainWindow::checkArg(video_name);
     MainWindow::checkArg(out_path);
     QString ext = video_name.split('.', QString::SkipEmptyParts).at(1);
@@ -74,12 +70,12 @@ void MainWindow::on_histButton_pressed()
             if(video.read(frame))
             {
                 n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
-                if(index == 0){
+                if(index == 0){//如果是第一帧就记下并跳过
                     pre = frame.clone();
                     index++;
                     continue;
                 }
-                float intersect = detectBondarybyHist(pre,frame);
+                float intersect = detectBondarybyHist(pre,frame);//用颜色直方图求并的方法计算每张图片与前一张图片的差别
                 diff.push_back(intersect);//第一个结果是第二帧
                 if(ui->showButton->isChecked())
                 {
@@ -97,10 +93,11 @@ void MainWindow::on_histButton_pressed()
                 break;
             }
         }
-        int w = 5;
+        //自适应阈值法选取合适的边界帧
+        int w = 50;//自适应窗口大小
         int c = 0;
-        vector<int> border;
         for(int i = 0;i < diff.size();i ++){
+            std::cout << diff[i] <<endl;
             int w1 = 0;
             float D = 0;
             for(int j = -w;j <= w;j ++){
@@ -122,13 +119,23 @@ void MainWindow::on_histButton_pressed()
             }
             else{
                 if(border[i] - 1 > 0 && border[i] + 1 <= index){
-                    video.set(CV_CAP_PROP_POS_FRAMES,border[i] -1);
+                    if(border[i] - 5 > 0){
+                        video.set(CV_CAP_PROP_POS_FRAMES,border[i] -5);
+                        video.read(frame);
+                        imwrite(full_name.toStdString(),frame);
+                        num++;
+                    }
+                    else{
+                        video.set(CV_CAP_PROP_POS_FRAMES,border[i] -1);
+                        video.read(frame);
+                        imwrite(full_name.toStdString(),frame);
+                        num++;
+                    }
+                    full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
+                    video.set(CV_CAP_PROP_POS_FRAMES,border[i] +5);
                     video.read(frame);
                     imwrite(full_name.toStdString(),frame);
-                    video.set(CV_CAP_PROP_POS_FRAMES,border[i] +1);
-                    video.read(frame);
-                    imwrite(full_name.toStdString(),frame);
-                    num+=2;
+                    num++;
                 }
             }
         }
@@ -179,7 +186,9 @@ void MainWindow::on_secondButton_pressed(){
             {
                 n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
                 ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
-                if(index == 0)
+                vector<int>::iterator it;
+                it=std::find(border.begin(),border.end(),index);
+                if(index == 0 || it != border.end())
                 {
                     key_frame = frame.clone();
                     cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
@@ -404,8 +413,8 @@ void MainWindow::detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame
         return;
     }
     float max = 0.0f;
-    float threshold = 0.7f;
-    int threshold2 = 10000000;
+    float threshold = 0.8f;
+    int threshold2 = 1500;
     int ind = 0;
     for(int i = 0;i < clusters.size();i ++){
         float diff = detectBondarybyHist(clusters[i].mat,frame);
@@ -423,6 +432,8 @@ void MainWindow::detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame
         clusters.push_back(c);
         return;
     }
+    //float p =  1 / (clusters[ind].members.size() + 1);
+    //如果在移动质心之后导致质心与其他质心相似 就将加入的元素重新立为另一个质
     clusters[ind].members.push_back(index);
     float p =  1 / (clusters[ind].members.size());
     addWeighted(clusters[ind].mat,1 - p,frame,p,0.0,clusters[ind].mat);

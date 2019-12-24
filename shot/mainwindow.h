@@ -65,6 +65,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    vector<int>border;
 };
 
 #endif // MAINWINDOW_H
