@@ -6,7 +6,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    ui->progressBar->setValue(0);
 }
 
 MainWindow::~MainWindow()
@@ -45,7 +44,6 @@ void MainWindow::on_histButton_pressed()
 {
     //为了能让后面的运动分析使用这个结果，把边界帧记录下来
     border.clear();
-    ui->progressBar->setValue(0);
 
     //获取输入的视频与输出的位置
     QString video_name = ui->inputLineEdit->text();
@@ -77,16 +75,8 @@ void MainWindow::on_histButton_pressed()
                 }
                 float intersect = detectBondarybyHist(pre,frame);//用颜色直方图求并的方法计算每张图片与前一张图片的差别
                 diff.push_back(intersect);//第一个结果是第二帧
-                if(ui->showButton->isChecked())
-                {
-                    imshow("Processing", frame);
-                    waitKey(20);
-                    char c = (char)waitKey(33);
-                    if( c == 27 ) break;
-                }
                 pre = frame.clone();
                 index++;
-                ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
             }
             else
             {
@@ -95,7 +85,7 @@ void MainWindow::on_histButton_pressed()
         }
         //自适应阈值法选取合适的边界帧
         int w = 5;//自适应窗口大小
-        int c = -0.1;
+        int c = 0;
         float alpha = 0.8;
         for(int i = 0;i < diff.size();i ++){
             int w1 = 0;
@@ -106,10 +96,18 @@ void MainWindow::on_histButton_pressed()
                 w1++;
                 D+=diff[i + j] + c;
             }
-            if((diff[i] + c < alpha * D/(w1))&&(border.size() == 0 ||i - border[border.size() - 1] > 10)) border.push_back(i);
+            if((diff[i] + c < alpha * D/(w1))) border.push_back(i);
         }
         int num = 0;
-        cout << border.size() << endl;
+//        cout << border.size() << endl;
+//        for(int i = 0;i < border.size();i++){
+//            QString full_name = out_path + "/border-" + QString::number(num) + ".jpg";
+//            video.set(CV_CAP_PROP_POS_FRAMES,border[i]);
+//            video.read(frame);
+//            imwrite(full_name.toStdString(),frame);
+//            num++;
+//        }
+//        num = 0;
         for(int i = 0;i < border.size();i++){
             QString full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
             if(i == 0 && border[i] != 1){
@@ -162,8 +160,6 @@ void MainWindow::on_histButton_pressed()
 }
 
 void MainWindow::on_secondButton_pressed(){
-    ui->progressBar->setValue(0);
-
     QString video_name = ui->inputLineEdit->text();
     QString out_path = ui->outputLineEdit->text();
 
@@ -197,7 +193,6 @@ void MainWindow::on_secondButton_pressed(){
             if(video.read(frame))
             {
                 n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
-                ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
                 vector<int>::iterator it;
                 it=std::find(border.begin(),border.end(),index);
                 if(index == 0 || it != border.end())
@@ -321,8 +316,6 @@ void MainWindow::on_secondButton_pressed(){
 }
 
 void MainWindow::on_KmeanButton_pressed(){
-    ui->progressBar->setValue(0);
-
     QString video_name = ui->inputLineEdit->text();
     QString out_path = ui->outputLineEdit->text();
     MainWindow::checkArg(video_name);
@@ -347,15 +340,7 @@ void MainWindow::on_KmeanButton_pressed(){
                 n_frame = video.get(CV_CAP_PROP_POS_FRAMES);
                 //cvtColor(frame, frame, CV_BGR2HSV);
                 detectKeyframebyKmeans(clusters,frame,index);
-                if(ui->showButton->isChecked())
-                {
-                    imshow("Processing", frame);
-                    waitKey(20);
-                    char c = (char)waitKey(33);
-                    if( c == 27 ) break;
-                }
                 index++;
-                ui->progressBar->setValue((int)((double)n_frame / (double)total_frames * 100));
             }
             else
             {
@@ -364,10 +349,11 @@ void MainWindow::on_KmeanButton_pressed(){
         }
 
         vector<int> keyframes;
+        int preind = 0;
         for(int i = 0;i < clusters.size();i++){
             float max = 0.0f;
             int ind;
-            if(clusters[i].members.size() <10) continue;
+            //if(clusters[i].members.size() <= 5) continue;
             for(int j = 0;j < clusters[i].members.size();j++){
                 video.set(CV_CAP_PROP_POS_FRAMES,clusters[i].members[j]);
                 video.read(frame);
@@ -377,7 +363,10 @@ void MainWindow::on_KmeanButton_pressed(){
                     ind = clusters[i].members[j];
                 }
             }
-            keyframes.push_back(ind);
+            if(ind - preind > 10){
+                keyframes.push_back(ind);
+                preind = ind;
+            }
         }
         sort(keyframes.begin(),keyframes.end());
         int num = 0;
@@ -439,14 +428,29 @@ void MainWindow::detectKeyframebyKmeans(vector<cluster>& clusters,cv::Mat& frame
     float threshold = 0.8f;
     int threshold2 = 1500;
     int ind = 0;
+    vector<int>::iterator it;
+    it=std::find(border.begin(),border.end(),index);
+    if(it != border.end()){
+        cluster c;
+        c.center = index;
+        c.mat = frame.clone();
+        c.members.push_back(index);
+        clusters.push_back(c);
+        return;
+    }
+    int j;
+    for(j = 0;j < border.size();j ++)
+        if(index < border[j]) break;
+    j = border[j - 1];
     for(int i = 0;i < clusters.size();i ++){
+        if(clusters[i].center < j) continue;
         float diff = detectBondarybyHist(clusters[i].mat,frame);
         if(diff > max && index - clusters[i].center < threshold2){
             ind = i;
             max = diff;
         }
     }
-    cout << "max " << max << endl;
+    cout << index <<" " << max << endl;
     if(max < threshold){
         cluster c;
         c.center = index;

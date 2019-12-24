@@ -58,13 +58,6 @@
      </layout>
     </item>
     <item>
-     <widget class="QCheckBox" name="showButton">
-      <property name="text">
-       <string>Show video processing</string>
-      </property>
-     </widget>
-    </item>
-    <item>
      <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
        <widget class="QPushButton" name="pushButton">
@@ -92,17 +85,6 @@
        <widget class="QPushButton" name="histbutton">
         <property name="text">
          <string>detect by hist</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QVBoxLayout" name="verticalLayout_3">
-      <item>
-       <widget class="QProgressBar" name="progressBar">
-        <property name="value">
-         <number>24</number>
         </property>
        </widget>
       </item>
