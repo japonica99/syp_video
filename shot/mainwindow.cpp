@@ -250,7 +250,7 @@ void MainWindow::on_secondButton_pressed(){
 
                         key_frame_points.clear();
                         key_frame_points.assign(cornor_points.begin(),cornor_points.end());
-                        if(keyframe.size() > 0 && index - keyframe[keyframe.size() - 1] > 0)
+                        if(keyframe.size() > 0 && index - keyframe[keyframe.size() - 1] > 20)
                             keyframe.push_back(index);
                         index ++;
                         continue;
