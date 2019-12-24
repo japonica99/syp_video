@@ -94,10 +94,10 @@ void MainWindow::on_histButton_pressed()
             }
         }
         //自适应阈值法选取合适的边界帧
-        int w = 50;//自适应窗口大小
-        int c = 0;
+        int w = 5;//自适应窗口大小
+        int c = -0.1;
+        float alpha = 0.8;
         for(int i = 0;i < diff.size();i ++){
-            std::cout << diff[i] <<endl;
             int w1 = 0;
             float D = 0;
             for(int j = -w;j <= w;j ++){
@@ -106,9 +106,10 @@ void MainWindow::on_histButton_pressed()
                 w1++;
                 D+=diff[i + j] + c;
             }
-            if(diff[i] + c < D/(2*w1)) border.push_back(i);
+            if((diff[i] + c < alpha * D/(w1))&&(border.size() == 0 ||i - border[border.size() - 1] > 10)) border.push_back(i);
         }
         int num = 0;
+        cout << border.size() << endl;
         for(int i = 0;i < border.size();i++){
             QString full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
             if(i == 0 && border[i] != 1){
@@ -119,8 +120,8 @@ void MainWindow::on_histButton_pressed()
             }
             else{
                 if(border[i] - 1 > 0 && border[i] + 1 <= index){
-                    if(border[i] - 5 > 0){
-                        video.set(CV_CAP_PROP_POS_FRAMES,border[i] -5);
+                    if(border[i] - 3 > 0){
+                        video.set(CV_CAP_PROP_POS_FRAMES,border[i] -3);
                         video.read(frame);
                         imwrite(full_name.toStdString(),frame);
                         num++;
@@ -131,11 +132,22 @@ void MainWindow::on_histButton_pressed()
                         imwrite(full_name.toStdString(),frame);
                         num++;
                     }
-                    full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
-                    video.set(CV_CAP_PROP_POS_FRAMES,border[i] +5);
-                    video.read(frame);
-                    imwrite(full_name.toStdString(),frame);
-                    num++;
+                    if(i + 1 <border.size() - 1 && border[i + 1] - border[i] < 50) continue;
+                    if(border[i] + 3 <= index){
+                        full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
+                        video.set(CV_CAP_PROP_POS_FRAMES,border[i] +3);
+                        video.read(frame);
+                        imwrite(full_name.toStdString(),frame);
+                        num++;
+                    }
+                    else{
+                        full_name = out_path + "/comparedbyhist-" + QString::number(num) + ".jpg";
+                        video.set(CV_CAP_PROP_POS_FRAMES,border[i] +1);
+                        video.read(frame);
+                        imwrite(full_name.toStdString(),frame);
+                        num++;
+                    }
+
                 }
             }
         }
@@ -190,6 +202,7 @@ void MainWindow::on_secondButton_pressed(){
                 it=std::find(border.begin(),border.end(),index);
                 if(index == 0 || it != border.end())
                 {
+                    cout <<"hi" << index <<endl;
                     key_frame = frame.clone();
                     cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
 
@@ -199,6 +212,8 @@ void MainWindow::on_secondButton_pressed(){
 
                     key_frame_points.clear();
                     key_frame_points.assign(cornor_points.begin(),cornor_points.end());
+                    index++;
+                    continue;
                 }
                 else
                 {
@@ -216,60 +231,68 @@ void MainWindow::on_secondButton_pressed(){
                     calcOpticalFlowPyrLK(current_frame_gray, key_frame_gray,current_frame_points, key_frame_points, status, err, winSize,3, termcrit, 0, 0.001);
                     //calc the distance
                     std::vector<double> moving_distance;
+                    int s_num = 0;
                     for(int i = 0; i < key_frame_points.size(); i++ )
                     {
                         if( status[i] )
                         {
+                            s_num ++;
                             moving_distance.push_back(sqrt( pow(key_frame_points[i].x-current_frame_points[i].x,2)+pow(key_frame_points[i].y-current_frame_points[i].y,2) ));
                         }
+                    }
+                    if(key_frame_points.size() > 0 && s_num * 1.0 / key_frame_points.size() <= 0.3){
+                        key_frame = frame.clone();
+                        cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
+
+                        cornor_points.clear();
+                        goodFeaturesToTrack(key_frame_gray, cornor_points,MAX_COUNT, 0.01, 10);
+                        cornerSubPix(key_frame_gray, cornor_points, subPixWinSize, Size(-1,-1), termcrit);
+
+                        key_frame_points.clear();
+                        key_frame_points.assign(cornor_points.begin(),cornor_points.end());
+                        if(keyframe.size() > 0 && index - keyframe[keyframe.size() - 1] > 0)
+                            keyframe.push_back(index);
+                        index ++;
+                        continue;
                     }
                     if(moving_distance.empty()) cout<<index<<" "<<"0";
                     else cout<<" "<<"1";
 
 
                     double mean_all=0,stdenv_all=0;
-                        getMeanandStd(moving_distance,mean_all,stdenv_all);
-                        cout<<"\t" << mean_all;
+                    getMeanandStd(moving_distance,mean_all,stdenv_all);
+                    cout<<"\t" << mean_all;
 
-                        //only keep the point in 2&stdenv
-                        std::vector<double> moving_distance_filter;
-                        for(int i=0;i<moving_distance.size();i++)
+                    //only keep the point in 2&stdenv
+                    std::vector<double> moving_distance_filter;
+                    for(int i=0;i<moving_distance.size();i++)
+                    {
+                        if( abs(moving_distance[i]-mean_all)<2*stdenv_all )
                         {
-                            if( abs(moving_distance[i]-mean_all)<2*stdenv_all )
-                            {
-                                moving_distance_filter.push_back(moving_distance[i]);
-                            }
+                            moving_distance_filter.push_back(moving_distance[i]);
                         }
+                    }
 
-                        //recompute the mean and std
-                        double mean_filter=0,stdenv_filter=0;
-                        getMeanandStd(moving_distance_filter,mean_filter,stdenv_filter);
+                    //recompute the mean and std
+                    double mean_filter=0,stdenv_filter=0;
+                    getMeanandStd(moving_distance_filter,mean_filter,stdenv_filter);
 
-                        cout<<"\t"<<mean_filter<<std::endl;
-                        //dealing
-                        if(mean_filter>=140)
-                        {
-                            //cv::swap(key_frame, frame);
-                            key_frame = frame.clone();
-                            cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
+                    cout<<"\t"<<mean_filter<<std::endl;
+                    //dealing
+                    if(mean_filter>=80)
+                    {
+                        //cv::swap(key_frame, frame);
+                        key_frame = frame.clone();
+                        cvtColor(key_frame, key_frame_gray, COLOR_BGR2GRAY);
 
-                            cornor_points.clear();
-                            goodFeaturesToTrack(key_frame_gray, cornor_points, MAX_COUNT, 0.01, 10);
-                            cornerSubPix(key_frame_gray, cornor_points, subPixWinSize, Size(-1,-1), termcrit);
+                        cornor_points.clear();
+                        goodFeaturesToTrack(key_frame_gray, cornor_points, MAX_COUNT, 0.01, 10);
+                        cornerSubPix(key_frame_gray, cornor_points, subPixWinSize, Size(-1,-1), termcrit);
 
-                            key_frame_points.clear();
-                            key_frame_points.assign(cornor_points.begin(),cornor_points.end());
-                            keyframe.push_back(index);
-                        }
-                }
-
-
-                if(ui->showButton->isChecked())
-                {
-                    imshow("Processing", frame);
-                    waitKey(20);
-                    char c = (char)waitKey(33);
-                    if( c == 27 ) break;
+                        key_frame_points.clear();
+                        key_frame_points.assign(cornor_points.begin(),cornor_points.end());
+                        keyframe.push_back(index);
+                    }
                 }
 
                 index++;
